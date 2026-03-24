@@ -1,9 +1,10 @@
 # 홀짝 게임 아키텍처
 
 ## 게임 규칙
-- 참여자는 1~100 숫자를 입력하고 베팅 금액을 건다
-- 어드민이 설정한 secret_number가 홀수면 → 참여자 WIN (베팅금액만큼 코인 획득)
-- secret_number가 짝수면 → 참여자 LOSE (베팅금액만큼 코인 차감)
+- 참여자는 홀수 또는 짝수를 선택하고 베팅 금액을 건다
+- 베팅 시 서버가 1~100 랜덤 숫자를 생성
+- 선택한 홀/짝이 랜덤 숫자와 일치하면 → WIN (베팅금액만큼 코인 획득)
+- 불일치하면 → LOSE (베팅금액만큼 코인 차감, 최소 0)
 - 기본 코인: 100개
 - 공정성: 베팅금액 = 획득/차감금액 (1:1)
 
@@ -29,24 +30,33 @@ CREATE TABLE users (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 게임 라운드 테이블
-CREATE TABLE game_rounds (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  secret_number INTEGER NOT NULL CHECK (secret_number BETWEEN 1 AND 100),
-  is_active BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  closed_at TIMESTAMPTZ
-);
-
--- 베팅 테이블
+-- 베팅 테이블 (라운드 없음, 베팅마다 즉시 결과)
 CREATE TABLE bets (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID REFERENCES users(id) NOT NULL,
-  round_id UUID REFERENCES game_rounds(id) NOT NULL,
   bet_amount INTEGER NOT NULL CHECK (bet_amount > 0),
-  result TEXT DEFAULT 'pending' CHECK (result IN ('pending', 'win', 'loss')),
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(user_id, round_id)
+  guess TEXT NOT NULL CHECK (guess IN ('odd', 'even')),
+  secret_number INTEGER NOT NULL CHECK (secret_number BETWEEN 1 AND 100),
+  result TEXT NOT NULL CHECK (result IN ('win', 'loss')),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 키-값 설정 테이블 (계좌 정보 등)
+CREATE TABLE settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+
+-- 입금 신청 테이블
+CREATE TABLE payment_requests (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES users(id) NOT NULL,
+  package_id TEXT NOT NULL,
+  coins INTEGER NOT NULL,
+  amount_usd NUMERIC NOT NULL,
+  depositor_name TEXT NOT NULL,
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 ```
 
@@ -54,11 +64,15 @@ CREATE TABLE bets (
 
 | Method | Path | 설명 | 인증 |
 |--------|------|------|------|
-| GET | /api/game/current-round | 현재 활성 라운드 조회 | 불필요 |
-| POST | /api/game/bet | 베팅 제출 | Clerk |
+| POST | /api/game/bet | 홀/짝 베팅 (즉시 결과 반환) | Clerk |
+| GET | /api/user | 내 코인 조회 | Clerk |
 | GET | /api/ranking | 랭킹 조회 (coins DESC) | 불필요 |
-| POST | /api/admin/create-round | 새 라운드 생성 | Admin |
-| POST | /api/admin/close-round | 라운드 종료 + 결과 처리 | Admin |
+| GET | /api/admin/bank-info | 계좌 정보 조회 | 없음 |
+| PUT | /api/admin/bank-info | 계좌 정보 저장 | Clerk |
+| POST | /api/payment/request | 입금 신청 제출 | Clerk |
+| GET | /api/payment/request | 내 신청 내역 조회 | Clerk |
+| GET | /api/admin/payments | 전체 신청 목록 | Clerk |
+| POST | /api/admin/payments/[id] | 승인/거절 처리 | Clerk |
 
 ## 페이지 구조
 - / (메인 게임 페이지)
