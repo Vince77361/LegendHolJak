@@ -7,7 +7,7 @@
 - Framework: NextJS 15 (App router)
 - DB: Supabase
 - State Management: Tanstack Query, Zustand
-- Auth: Clerk
+- Auth: Supabase Auth
 - UI Library: TailwindCSS, Shadcn/UI
 - Toast: react-hot-toast
 - Testing Library: Jest, Playwright
@@ -97,9 +97,9 @@ error?: string
 
 ## Auth Rules
 
-- use Clerk for better auth performance.
-- Protected Routes MUST be through middlewares.
-- userId should be gotten only through auth()
+- Use Supabase Auth for authentication.
+- Protected Routes MUST be through middlewares (supabase-middleware.ts).
+- Auth user should be gotten only through createSupabaseServerClient().auth.getUser()
 
 ---
 

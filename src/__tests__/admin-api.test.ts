@@ -2,23 +2,26 @@
  * Admin API Route Tests
  *
  * Tests POST /api/admin/create-round and POST /api/admin/close-round
- * with mocked Supabase and Clerk.
+ * with mocked Supabase.
  */
 
 import { NextRequest } from "next/server";
 
-// Mock Supabase
+// Mock Supabase admin client
 const mockFrom = jest.fn();
 jest.mock("@/lib/supabase", () => ({
-  supabase: {
+  getSupabase: () => ({
     from: (...args: unknown[]) => mockFrom(...args),
-  },
+  }),
 }));
 
-// Mock Clerk auth
-const mockAuth = jest.fn();
-jest.mock("@clerk/nextjs/server", () => ({
-  auth: () => mockAuth(),
+// Mock Supabase auth (server client)
+const mockGetUser = jest.fn();
+jest.mock("@/lib/supabase-server", () => ({
+  createSupabaseServerClient: () =>
+    Promise.resolve({
+      auth: { getUser: () => mockGetUser() },
+    }),
 }));
 
 import { POST as createRound } from "@/app/api/admin/create-round/route";
@@ -60,7 +63,7 @@ beforeEach(() => {
 // ========== create-round ==========
 describe("POST /api/admin/create-round", () => {
   test("미인증 시 401 에러 반환", async () => {
-    mockAuth.mockResolvedValue({ userId: null });
+    mockGetUser.mockResolvedValue({ data: { user: null } });
 
     const req = createRequest(
       "http://localhost:3000/api/admin/create-round",
@@ -74,7 +77,9 @@ describe("POST /api/admin/create-round", () => {
   });
 
   test("유효하지 않은 secret_number 시 400 에러", async () => {
-    mockAuth.mockResolvedValue({ userId: "admin-1" });
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: "admin-1" } },
+    });
 
     const req = createRequest(
       "http://localhost:3000/api/admin/create-round",
@@ -88,7 +93,9 @@ describe("POST /api/admin/create-round", () => {
   });
 
   test("101 이상의 secret_number 시 400 에러", async () => {
-    mockAuth.mockResolvedValue({ userId: "admin-1" });
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: "admin-1" } },
+    });
 
     const req = createRequest(
       "http://localhost:3000/api/admin/create-round",
@@ -102,13 +109,14 @@ describe("POST /api/admin/create-round", () => {
   });
 
   test("이미 active 라운드 있을 때 400 에러", async () => {
-    mockAuth.mockResolvedValue({ userId: "admin-1" });
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: "admin-1" } },
+    });
 
     let callCount = 0;
     mockFrom.mockImplementation(() => {
       callCount++;
       if (callCount === 1) {
-        // game_rounds - active round exists
         const chain = createQueryChain();
         chain.single = jest.fn().mockResolvedValue({
           data: { id: "existing-round" },
@@ -132,13 +140,14 @@ describe("POST /api/admin/create-round", () => {
   });
 
   test("라운드 생성 성공", async () => {
-    mockAuth.mockResolvedValue({ userId: "admin-1" });
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: "admin-1" } },
+    });
 
     let callCount = 0;
     mockFrom.mockImplementation(() => {
       callCount++;
       if (callCount === 1) {
-        // game_rounds - no active round
         const chain = createQueryChain();
         chain.single = jest.fn().mockResolvedValue({
           data: null,
@@ -147,7 +156,6 @@ describe("POST /api/admin/create-round", () => {
         return chain;
       }
       if (callCount === 2) {
-        // game_rounds - insert new round
         const chain = createQueryChain();
         chain.single = jest.fn().mockResolvedValue({
           data: { id: "new-round-1" },
@@ -174,7 +182,7 @@ describe("POST /api/admin/create-round", () => {
 // ========== close-round ==========
 describe("POST /api/admin/close-round", () => {
   test("미인증 시 401 에러 반환", async () => {
-    mockAuth.mockResolvedValue({ userId: null });
+    mockGetUser.mockResolvedValue({ data: { user: null } });
 
     const req = createRequest(
       "http://localhost:3000/api/admin/close-round",
@@ -188,7 +196,9 @@ describe("POST /api/admin/close-round", () => {
   });
 
   test("라운드 없을 때 404 에러", async () => {
-    mockAuth.mockResolvedValue({ userId: "admin-1" });
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: "admin-1" } },
+    });
 
     let callCount = 0;
     mockFrom.mockImplementation(() => {
@@ -216,7 +226,9 @@ describe("POST /api/admin/close-round", () => {
   });
 
   test("이미 종료된 라운드 시 400 에러", async () => {
-    mockAuth.mockResolvedValue({ userId: "admin-1" });
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: "admin-1" } },
+    });
 
     let callCount = 0;
     mockFrom.mockImplementation(() => {
@@ -245,7 +257,9 @@ describe("POST /api/admin/close-round", () => {
   });
 
   test("라운드 종료 시 모든 bet 결과 처리 (홀수 = win)", async () => {
-    mockAuth.mockResolvedValue({ userId: "admin-1" });
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: "admin-1" } },
+    });
 
     const mockBets = [
       { id: "bet-1", user_id: "user-1", bet_amount: 10 },
@@ -256,7 +270,6 @@ describe("POST /api/admin/close-round", () => {
     mockFrom.mockImplementation(() => {
       callCount++;
       if (callCount === 1) {
-        // game_rounds - get round (odd secret_number = 7)
         const chain = createQueryChain();
         chain.single = jest.fn().mockResolvedValue({
           data: { id: "round-1", secret_number: 7, is_active: true },
@@ -265,17 +278,14 @@ describe("POST /api/admin/close-round", () => {
         return chain;
       }
       if (callCount === 2) {
-        // bets - get all pending bets
         const chain = createQueryChain();
         chain.eq = jest.fn().mockReturnValue(chain);
-        // The last .eq call resolves
         chain.eq = jest.fn().mockResolvedValue({
           data: mockBets,
           error: null,
         });
         return chain;
       }
-      // Subsequent calls for updating users and bets
       const chain = createQueryChain();
       chain.single = jest.fn().mockResolvedValue({
         data: { coins: 100 },
@@ -299,7 +309,9 @@ describe("POST /api/admin/close-round", () => {
   });
 
   test("라운드 종료 시 모든 bet 결과 처리 (짝수 = loss)", async () => {
-    mockAuth.mockResolvedValue({ userId: "admin-1" });
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: "admin-1" } },
+    });
 
     const mockBets = [
       { id: "bet-1", user_id: "user-1", bet_amount: 10 },
@@ -309,7 +321,6 @@ describe("POST /api/admin/close-round", () => {
     mockFrom.mockImplementation(() => {
       callCount++;
       if (callCount === 1) {
-        // game_rounds - get round (even secret_number = 42)
         const chain = createQueryChain();
         chain.single = jest.fn().mockResolvedValue({
           data: { id: "round-1", secret_number: 42, is_active: true },
@@ -318,7 +329,6 @@ describe("POST /api/admin/close-round", () => {
         return chain;
       }
       if (callCount === 2) {
-        // bets - get all pending bets
         const chain = createQueryChain();
         chain.eq = jest.fn().mockResolvedValue({
           data: mockBets,
@@ -326,7 +336,6 @@ describe("POST /api/admin/close-round", () => {
         });
         return chain;
       }
-      // bets - update result to loss, game_rounds - close
       const chain = createQueryChain();
       chain.eq = jest.fn().mockResolvedValue({ error: null });
       return chain;

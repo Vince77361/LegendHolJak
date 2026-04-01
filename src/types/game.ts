@@ -1,6 +1,6 @@
 export interface User {
   id: string;
-  clerk_id: string;
+  auth_id: string;
   username: string;
   coins: number;
   created_at: string;

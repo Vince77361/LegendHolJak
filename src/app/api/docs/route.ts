@@ -69,8 +69,8 @@ const swaggerSpec = {
         tags: ["Game"],
         summary: "베팅 제출",
         description:
-          "현재 활성 라운드에 베팅을 제출합니다. Clerk 인증이 필요합니다.",
-        security: [{ clerkAuth: [] }],
+          "현재 활성 라운드에 베팅을 제출합니다. Supabase Auth 인증이 필요합니다.",
+        security: [{ supabaseAuth: [] }],
         requestBody: {
           required: true,
           content: {
@@ -204,7 +204,7 @@ const swaggerSpec = {
         summary: "새 라운드 생성",
         description:
           "새 게임 라운드를 생성합니다. Admin 권한이 필요합니다.",
-        security: [{ clerkAuth: [] }],
+        security: [{ supabaseAuth: [] }],
         requestBody: {
           required: true,
           content: {
@@ -290,7 +290,7 @@ const swaggerSpec = {
         summary: "라운드 종료 + 결과 처리",
         description:
           "활성 라운드를 종료하고 베팅 결과를 처리합니다. secret_number가 홀수면 참여자 WIN(코인 획득), 짝수면 LOSE(코인 차감). Admin 권한이 필요합니다.",
-        security: [{ clerkAuth: [] }],
+        security: [{ supabaseAuth: [] }],
         requestBody: {
           required: true,
           content: {
@@ -394,11 +394,11 @@ const swaggerSpec = {
       },
     },
     securitySchemes: {
-      clerkAuth: {
+      supabaseAuth: {
         type: "http",
         scheme: "bearer",
         bearerFormat: "JWT",
-        description: "Clerk 인증 토큰",
+        description: "Supabase Auth 인증 토큰",
       },
     },
   },

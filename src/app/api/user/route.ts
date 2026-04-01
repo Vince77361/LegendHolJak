@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { getSupabase } from "@/lib/supabase";
 
 export async function GET() {
   try {
-    const { userId } = await auth();
+    const supabaseAuth = await createSupabaseServerClient();
+    const {
+      data: { user: authUser },
+    } = await supabaseAuth.auth.getUser();
 
-    if (!userId) {
+    if (!authUser) {
       return NextResponse.json(
         { success: false, error: "로그인이 필요합니다." },
         { status: 401 },
@@ -17,24 +20,28 @@ export async function GET() {
     const { data: user, error } = await supabase
       .from("users")
       .select("id, username, coins")
-      .eq("clerk_id", userId)
+      .eq("auth_id", authUser.id)
       .single();
 
     if (!error && user) {
       return NextResponse.json({ success: true, data: user });
     }
 
-    // 유저가 없으면 Clerk 정보로 자동 생성
-    const clerkUser = await currentUser();
-    const username =
-      clerkUser?.username ||
-      clerkUser?.firstName ||
-      clerkUser?.emailAddresses?.[0]?.emailAddress?.split("@")[0] ||
+    // 유저가 없으면 Supabase Auth 정보로 자동 생성
+    let username =
+      authUser.user_metadata?.username ||
+      authUser.user_metadata?.full_name ||
+      authUser.email?.split("@")[0] ||
       "익명";
+
+    // admin 이름 차단
+    if (username.trim().toLowerCase() === "admin") {
+      username = "익명";
+    }
 
     const { data: newUser, error: createError } = await supabase
       .from("users")
-      .insert({ clerk_id: userId, username, coins: 100 })
+      .insert({ auth_id: authUser.id, username, coins: 100 })
       .select("id, username, coins")
       .single();
 

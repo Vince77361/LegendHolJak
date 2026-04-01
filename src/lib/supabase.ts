@@ -2,6 +2,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 let _client: SupabaseClient | null = null;
 
+/** Admin client using service role key — server-side only, bypasses RLS */
 export function getSupabase() {
   if (!_client) {
     const url = process.env.SUPABASE_URL;

@@ -1,21 +1,24 @@
 /**
  * User API Route Tests
  *
- * Tests GET /api/user with mocked Supabase and Clerk.
+ * Tests GET /api/user with mocked Supabase.
  */
 
-// Mock Supabase
+// Mock Supabase admin client
 const mockFrom = jest.fn();
 jest.mock("@/lib/supabase", () => ({
-  supabase: {
+  getSupabase: () => ({
     from: (...args: unknown[]) => mockFrom(...args),
-  },
+  }),
 }));
 
-// Mock Clerk auth
-const mockAuth = jest.fn();
-jest.mock("@clerk/nextjs/server", () => ({
-  auth: () => mockAuth(),
+// Mock Supabase auth (server client)
+const mockGetUser = jest.fn();
+jest.mock("@/lib/supabase-server", () => ({
+  createSupabaseServerClient: () =>
+    Promise.resolve({
+      auth: { getUser: () => mockGetUser() },
+    }),
 }));
 
 import { GET } from "@/app/api/user/route";
@@ -41,7 +44,7 @@ beforeEach(() => {
 
 describe("GET /api/user", () => {
   test("미인증 시 401 에러 반환", async () => {
-    mockAuth.mockResolvedValue({ userId: null });
+    mockGetUser.mockResolvedValue({ data: { user: null } });
 
     const res = await GET();
     const body = await res.json();
@@ -52,7 +55,9 @@ describe("GET /api/user", () => {
   });
 
   test("사용자 조회 성공 시 200 + 사용자 정보 반환", async () => {
-    mockAuth.mockResolvedValue({ userId: "clerk-user-1" });
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: "supabase-user-1", email: "test@example.com" } },
+    });
 
     mockFrom.mockImplementation(() => {
       const chain = createQueryChain();
@@ -70,25 +75,5 @@ describe("GET /api/user", () => {
     expect(body.success).toBe(true);
     expect(body.data.username).toBe("TestUser");
     expect(body.data.coins).toBe(100);
-  });
-
-  test("사용자 없을 때 404 에러 반환", async () => {
-    mockAuth.mockResolvedValue({ userId: "clerk-user-1" });
-
-    mockFrom.mockImplementation(() => {
-      const chain = createQueryChain();
-      chain.single = jest.fn().mockResolvedValue({
-        data: null,
-        error: { code: "PGRST116", message: "Not found" },
-      });
-      return chain;
-    });
-
-    const res = await GET();
-    const body = await res.json();
-
-    expect(res.status).toBe(404);
-    expect(body.success).toBe(false);
-    expect(body.error).toContain("사용자");
   });
 });

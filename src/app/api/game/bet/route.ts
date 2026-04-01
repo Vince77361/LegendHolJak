@@ -1,27 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { getSupabase } from "@/lib/supabase";
 
-async function getOrCreateUser(userId: string) {
+async function getOrCreateUser(authId: string, email?: string) {
   const supabase = getSupabase();
   const { data: user } = await supabase
     .from("users")
     .select("id, coins")
-    .eq("clerk_id", userId)
+    .eq("auth_id", authId)
     .single();
 
   if (user) return user;
 
-  const clerkUser = await currentUser();
-  const username =
-    clerkUser?.username ||
-    clerkUser?.firstName ||
-    clerkUser?.emailAddresses?.[0]?.emailAddress?.split("@")[0] ||
-    "익명";
+  const username = email?.split("@")[0] || "익명";
 
   const { data: newUser } = await supabase
     .from("users")
-    .insert({ clerk_id: userId, username, coins: 100 })
+    .insert({ auth_id: authId, username, coins: 100 })
     .select("id, coins")
     .single();
 
@@ -30,9 +25,12 @@ async function getOrCreateUser(userId: string) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId } = await auth();
+    const supabaseAuth = await createSupabaseServerClient();
+    const {
+      data: { user: authUser },
+    } = await supabaseAuth.auth.getUser();
 
-    if (!userId) {
+    if (!authUser) {
       return NextResponse.json(
         { success: false, error: "로그인이 필요합니다." },
         { status: 401 },
@@ -48,7 +46,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const user = await getOrCreateUser(userId);
+    const user = await getOrCreateUser(authUser.id, authUser.email);
 
     if (!user) {
       return NextResponse.json(

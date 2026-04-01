@@ -12,7 +12,7 @@
 - Framework: NextJS 15 App Router
 - Language: TypeScript
 - DB: Supabase
-- Auth: Clerk
+- Auth: Supabase Auth
 - State: Tanstack Query + Zustand
 - UI: TailwindCSS + Shadcn/UI
 - Toast: react-hot-toast (상단, 흰색)
@@ -24,7 +24,7 @@
 -- 사용자 테이블
 CREATE TABLE users (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  clerk_id TEXT UNIQUE NOT NULL,
+  auth_id UUID UNIQUE NOT NULL,
   username TEXT NOT NULL,
   coins INTEGER DEFAULT 100 NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW()
@@ -64,20 +64,21 @@ CREATE TABLE payment_requests (
 
 | Method | Path | 설명 | 인증 |
 |--------|------|------|------|
-| POST | /api/game/bet | 홀/짝 베팅 (즉시 결과 반환) | Clerk |
-| GET | /api/user | 내 코인 조회 | Clerk |
+| POST | /api/game/bet | 홀/짝 베팅 (즉시 결과 반환) | Supabase Auth |
+| GET | /api/user | 내 코인 조회 | Supabase Auth |
 | GET | /api/ranking | 랭킹 조회 (coins DESC) | 불필요 |
 | GET | /api/admin/bank-info | 계좌 정보 조회 | 없음 |
-| PUT | /api/admin/bank-info | 계좌 정보 저장 | Clerk |
-| POST | /api/payment/request | 입금 신청 제출 | Clerk |
-| GET | /api/payment/request | 내 신청 내역 조회 | Clerk |
-| GET | /api/admin/payments | 전체 신청 목록 | Clerk |
-| POST | /api/admin/payments/[id] | 승인/거절 처리 | Clerk |
+| PUT | /api/admin/bank-info | 계좌 정보 저장 | Supabase Auth |
+| POST | /api/payment/request | 입금 신청 제출 | Supabase Auth |
+| GET | /api/payment/request | 내 신청 내역 조회 | Supabase Auth |
+| GET | /api/admin/payments | 전체 신청 목록 | Supabase Auth |
+| POST | /api/admin/payments/[id] | 승인/거절 처리 | Supabase Auth |
 
 ## 페이지 구조
 - / (메인 게임 페이지)
 - /ranking (랭킹 페이지)
-- /admin (어드민 페이지, Clerk 보호)
+- /admin (어드민 페이지, Supabase Auth 보호)
+- /sign-in (Google OAuth 로그인)
 
 ## 폴더 구조
 ```

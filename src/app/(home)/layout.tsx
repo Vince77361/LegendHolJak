@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { CoinDisplay } from "@/components/game/coin-display";
 import { useGameStore } from "@/lib/store";
 import { useUserCoins } from "@/hooks/useGame";
+import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 
 export default function MainLayout({
   children,
@@ -12,9 +13,17 @@ export default function MainLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { data: userData } = useUserCoins();
   const userCoins = useGameStore((s) => s.userCoins);
   const username = userData?.username ?? "Player";
+
+  const handleSignOut = async () => {
+    const supabase = createSupabaseBrowserClient();
+    await supabase.auth.signOut();
+    router.push("/sign-in");
+    router.refresh();
+  };
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -25,7 +34,15 @@ export default function MainLayout({
               🎲 홀짝
             </h1>
           </Link>
-          <CoinDisplay coins={userCoins} username={username} />
+          <div className="flex items-center gap-3">
+            <CoinDisplay coins={userCoins} username={username} />
+            <button
+              onClick={handleSignOut}
+              className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              로그아웃
+            </button>
+          </div>
         </div>
       </header>
 
