@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth, currentUser } from "@clerk/nextjs/server";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 
 export async function GET() {
   try {
@@ -13,6 +13,7 @@ export async function GET() {
       );
     }
 
+    const supabase = getSupabase();
     const { data: user, error } = await supabase
       .from("users")
       .select("id, username, coins")

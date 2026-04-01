@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 
 export async function GET(request: NextRequest) {
   const { userId } = await auth();
@@ -9,6 +9,7 @@ export async function GET(request: NextRequest) {
   }
 
   const username = request.nextUrl.searchParams.get("username");
+  const supabase = getSupabase();
 
   let query = supabase.from("users").select("id, username, coins").order("coins", { ascending: false });
   if (username) query = query.ilike("username", `%${username}%`);

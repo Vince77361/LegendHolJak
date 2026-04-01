@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 
 export async function POST(
   request: NextRequest,
@@ -13,6 +13,7 @@ export async function POST(
 
   const { coins } = await request.json();
   const { id } = await params;
+  const supabase = getSupabase();
 
   if (!coins || coins <= 0) {
     return NextResponse.json({ success: false, error: "유효하지 않은 코인 값입니다." }, { status: 400 });

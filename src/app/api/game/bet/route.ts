@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth, currentUser } from "@clerk/nextjs/server";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 
 async function getOrCreateUser(userId: string) {
+  const supabase = getSupabase();
   const { data: user } = await supabase
     .from("users")
     .select("id, coins")
@@ -63,7 +64,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 랜덤 숫자 생성 (1~100)
+    const supabase = getSupabase();
     const secret_number = Math.floor(Math.random() * 100) + 1;
     const isOdd = secret_number % 2 !== 0;
     const result =
