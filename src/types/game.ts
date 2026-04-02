@@ -28,6 +28,13 @@ export interface RankingEntry {
   rank: number;
 }
 
+export interface MyRanking {
+  myRank: number;
+  myCoins: number;
+  topCoins: number;
+  totalUsers: number;
+}
+
 export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
